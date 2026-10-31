@@ -1,0 +1,7 @@
+[Unit]
+Description=Auto-commit Obsidian brain vault
+
+[Service]
+# Change the path if your brain vault is not ~/brain.
+Type=oneshot
+ExecStart=%h/brain/_meta/auto-commit.sh

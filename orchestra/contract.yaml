@@ -1,0 +1,32 @@
+# Orchestra channel contract (global). Checked by hooks/orch_hooks.py send-contract (PreToolUse on SendMessage; log-only until enforce).
+# Spec: my harness research notes (not in this repo), section 3.2.
+# Each team adds its own part in <team>/.orchestra/contract.yaml (copy contract.team-template.yaml).
+#
+# Envelope: the first line of every SendMessage is
+#   <TYPE> <id> <from> -> <to>
+# Example: FINDING f-dev-07 master-dev -> master-depth
+# <id> is short and unique in the team, e.g. t-02 for task 02, f-dev-07 for finding 7 of team dev.
+# The rest of the message is free text.
+#
+# Roles: user, po, master (master-<team>), worker (<team>-*), verifier, watcher (code).
+# A pair that is not listed below is forbidden.
+# Forbidden on purpose: worker -> worker, worker -> other master, worker -> po, master -> other team's worker.
+
+version: 1
+
+channels:
+  - {from: user,     to: po,       types: any}
+  - {from: user,     to: master,   types: any}
+  - {from: po,       to: master,   types: [TEAM_START, ANSWER, RESTART, RETIRE_REQ, LOAN_GRANT]}  # ANSWER only in away mode
+  - {from: master,   to: po,       types: [QUESTION, LOAN_REQ, REPORT_READY, RETIRE_DONE]}      # QUESTION only in away mode
+  - {from: master,   to: own_worker, types: [TASK, ANSWER, FIX, STOP, STATE_REQ]}
+  - {from: own_worker, to: master, types: [DONE, BLOCKED, QUESTION, STATE_READY]}
+  - {from: master,   to: master,   types: [FINDING, ASK_FACT, LOAN_OFFER, ANSWER, DECLINE]}
+    # FINDING = fact plus report path, no request. ASK_FACT = read-only question.
+    # LOAN_OFFER goes with a copy to the po. Never TASK. The receiver may ignore a FINDING.
+  - {from: verifier, to: master,   types: [VERDICT]}
+  - {from: watcher,  to: any,      types: [WAKE]}  # code only
+                                                  # WAKE kinds: CHAIN_END, CHAIN_STALE, CTX_300K, CTX_400K, USAGE_RESUME, API_RESUME, GPU_IDLE
+
+# Built: hooks/orch_hooks.py send-log appends every message to <team>/.orchestra/messages.jsonl,
+# and a copy of each FINDING to ~/.claude/orchestra/findings.jsonl.

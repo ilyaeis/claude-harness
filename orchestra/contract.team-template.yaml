@@ -1,0 +1,10 @@
+# Team part of the channel contract. Copy to <team>/.orchestra/contract.yaml.
+# The PO fills it when it creates the team. The user approves it with the plan.
+# Global rules: ~/.claude/orchestra/contract.yaml. Document only: no code checks it yet.
+
+team: <team>
+master: master-<team>
+workers: <team>-*
+gpus: []                 # e.g. [gpu1:0, gpu1:1]; same as ORCHESTRA_GPUS
+allowed_hosts: []        # ssh hosts the team may use, e.g. [gpu1]
+finding_subscriptions: [] # teams whose FINDING messages this master reads, e.g. [dev, depth]

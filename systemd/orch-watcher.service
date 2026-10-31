@@ -1,0 +1,7 @@
+[Unit]
+Description=Orchestra watcher v1 (alert only, one run)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.claude/orchestra/watcher.py
+TimeoutStartSec=90

@@ -1,0 +1,17 @@
+flowchart TD
+    U[User] -->|goal| PO["PO (optional)<br/>creates teams, summaries,<br/>stands in when user is away"]
+    U -->|goal, approvals| M["Master (Opus)<br/>plans, splits, checks<br/>no project work"]
+    PO -->|start-master.sh| M
+    M -->|plan question| PL["Planner subagent<br/>Fable model, read-only"]
+    M -->|spawn-worker.sh| W["Workers in hidden tmux session<br/>Sonnet default, Opus hard, Haiku mechanical<br/>own branch or worktree"]
+    W -->|chain-run.sh| J[(Long server jobs<br/>EXIT marker + heartbeat)]
+    W -->|session report| B[(Brain vault<br/>reports/topic/)]
+    W -->|DONE / BLOCKED| M
+    M -->|verify claims, retire-worker.sh| W
+    WA["Watcher<br/>systemd timer, every 2 min"] -->|reads| J
+    WA -->|WAKE line| M
+    M -->|inbox-ask.sh| IN["Local inbox page<br/>127.0.0.1, phone via tailnet"]
+    IN -->|INBOX answer line| M
+    U -->|answers| IN
+    M -->|summary, report path| U
+    U -->|merges the MR/PR| R[(Repo)]

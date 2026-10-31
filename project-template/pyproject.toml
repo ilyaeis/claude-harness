@@ -1,0 +1,39 @@
+[project]
+name = "my-project"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[dependency-groups]
+dev = ["ruff", "pytest"]
+
+[tool.ruff]
+line-length = 120
+exclude = ["vendor"]   # third-party code you do not own; keep in sync with [tool.loc_check] exclude
+force-exclude = true
+
+[tool.ruff.lint]
+# E/F: pycodestyle and pyflakes errors. B: likely bugs. I: import order. C901: complexity.
+select = ["E", "F", "B", "I", "C901"]
+ignore = ["E501"]      # ruff format owns line length
+task-tags = ["TODO", "FIXME", "XXX", "HACK"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.loc_check]
+# Lines of code: blank lines, comments and docstrings do not count.
+file = 300
+class = 200
+function = 60
+exclude = ["vendor"]
+baseline = "tools/loc_baseline.json"   # items over a limit when the gate started; they may only shrink
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

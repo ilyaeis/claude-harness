@@ -1,0 +1,89 @@
+{
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Edit(*)",
+      "NotebookEdit(*)",
+      "Read(*)",
+      "WebFetch(*)",
+      "WebSearch",
+      "Write(*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "model": "opus[1m]",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $HOME/.claude/orchestra/hooks/orch_hooks.py stop-guard",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^SendMessage$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $HOME/.claude/orchestra/hooks/orch_hooks.py send-contract",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $HOME/.claude/orchestra/hooks/orch_hooks.py rm-explainer",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^SendMessage$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $HOME/.claude/orchestra/hooks/orch_hooks.py send-log",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "worktree": {
+    "baseRef": "fresh"
+  },
+  "workflowKeywordTriggerEnabled": false,
+  "effortLevel": "medium",
+  "awaySummaryEnabled": false,
+  "dialogExpiry": "never",
+  "tui": "fullscreen",
+  "autoMemoryEnabled": false,
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark-ansi",
+  "editorMode": "normal",
+  "verbose": true,
+  "preferredNotifChannel": "notifications_disabled",
+  "autoCompactEnabled": false,
+  "switchModelsOnFlag": false,
+  "autoContinueAtUsageLimit": false,
+  "remoteControlAtStartup": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "useAutoModeDuringPlan": true,
+  "skipDangerousModePermissionPrompt": true
+}

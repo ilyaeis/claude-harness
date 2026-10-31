@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orchestra inbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column, a sticky tally bar, one block per team, items as rows with a kind stripe. */
+:root {
+  --bg: #f3f5f7; --surface: #ffffff; --fg: #17202a; --muted: #5b6875; --line: #dde3e9;
+  --accent: #1f5f8b; --accent-fg: #ffffff;
+  --k-decision: #1f5f8b; --k-verdict: #6b3fa0; --k-user-action: #a35a00; --k-delete: #b3261e; --k-other: #5b6875;
+  --yes: #1e7a46; --no: #b3261e; --later: #5b6875;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1419; --surface: #182029; --fg: #e4e9ee; --muted: #93a1ae; --line: #2a3541;
+  --accent: #6fb3e0; --accent-fg: #0f1419;
+  --k-decision: #6fb3e0; --k-verdict: #b99be6; --k-user-action: #e5a54a; --k-delete: #f07a72; --k-other: #93a1ae;
+  --yes: #5ccf8c; --no: #f07a72; --later: #93a1ae; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1419; --surface: #182029; --fg: #e4e9ee; --muted: #93a1ae; --line: #2a3541;
+  --accent: #6fb3e0; --accent-fg: #0f1419;
+  --k-decision: #6fb3e0; --k-verdict: #b99be6; --k-user-action: #e5a54a; --k-delete: #f07a72; --k-other: #93a1ae;
+  --yes: #5ccf8c; --no: #f07a72; --later: #93a1ae; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 16px/1.45 var(--f-body); }
+.wrap { max-width: 44rem; margin: 0 auto; padding-inline: 16px; padding-block: 0 3rem; }
+header.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding-block: .75rem; display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
+h1 { font: 700 1.35rem/1.1 var(--f-display); margin: 0; letter-spacing: -.01em; }
+.tally { font: 500 .85rem var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tally b { color: var(--fg); font-weight: 500; }
+.note { color: var(--muted); font-size: .9rem; margin: 1rem 0 0; }
+section.team { margin-top: 1.75rem; }
+section.team > h2 { font: 700 1.05rem var(--f-display); margin: 0 0 .5rem; display: flex; gap: .5rem; align-items: baseline; text-wrap: balance; }
+section.team > h2 .master { font: 400 .8rem var(--f-mono); color: var(--muted); }
+.items { display: flex; flex-direction: column; gap: .6rem; }
+.item { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--kc); border-radius: 8px;
+  padding: .75rem .85rem; display: flex; flex-direction: column; gap: .55rem; min-width: 0; }
+.item[data-kind="decision"] { --kc: var(--k-decision); }
+.item[data-kind="verdict"] { --kc: var(--k-verdict); }
+.item[data-kind="user-action"] { --kc: var(--k-user-action); }
+.item[data-kind="delete"] { --kc: var(--k-delete); }
+.item[data-kind="other"] { --kc: var(--k-other); }
+.meta { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.kind { font: 700 .78rem var(--f-display); text-transform: uppercase; letter-spacing: .06em; color: var(--kc);
+  border: 2px solid var(--kc); border-radius: 4px; padding: .1rem .45rem; }
+.when, .iid { font: .75rem var(--f-mono); color: var(--muted); }
+.iid { margin-left: auto; }
+.text { margin: 0; overflow-wrap: anywhere; }
+.actions { display: flex; gap: .45rem; flex-wrap: wrap; }
+button { font: 600 .95rem var(--f-body); border-radius: 6px; border: 1.5px solid var(--line); background: var(--bg); color: var(--fg);
+  min-height: 2.6rem; padding: 0 1rem; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+button.yes { border-color: var(--yes); color: var(--yes); }
+button.no { border-color: var(--no); color: var(--no); }
+button.opt { border-color: var(--yes); color: var(--yes); }
+button.skip { border-color: var(--later); color: var(--later); }
+button.explain { border-color: var(--muted); color: var(--muted); }
+.thread { display: flex; flex-direction: column; gap: .35rem; font-size: .9rem; }
+.thread .ask { color: var(--muted); font: .8rem var(--f-mono); }
+.thread .reply { border-left: 3px solid var(--accent); padding: .25rem .6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread .reply small { display: block; color: var(--muted); font: .75rem var(--f-mono); }
+button:disabled { opacity: .5; cursor: default; }
+.free { display: flex; gap: .45rem; min-width: 0; }
+.free input { flex: 1; min-width: 0; font: 1rem var(--f-body); color: var(--fg); background: var(--bg);
+  border: 1.5px solid var(--line); border-radius: 6px; padding: 0 .6rem; min-height: 2.6rem; }
+button.send { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+details.done { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid var(--kc); border-radius: 8px; }
+details.done > summary { list-style: none; cursor: pointer; padding: .55rem .85rem; display: flex; gap: .5rem; align-items: baseline; min-width: 0; }
+details.done > summary::-webkit-details-marker { display: none; }
+details.done > summary .ans { font: 700 .8rem var(--f-display); text-transform: uppercase; letter-spacing: .05em; flex: none; }
+details.done > summary .short { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+details.done .item { border: 0; border-radius: 0 0 8px 8px; padding-top: 0; }
+.ans.yes { color: var(--yes); } .ans.no { color: var(--no); } .ans.opt { color: var(--yes); } .ans.later, .ans.skip, .ans.note { color: var(--later); }
+.given { font-size: .9rem; color: var(--muted); }
+.given b { color: var(--fg); font-weight: 600; }
+.resolved h2 { color: var(--muted); }
+.empty { border: 1.5px dashed var(--line); border-radius: 8px; padding: 1.25rem; margin-top: 1.5rem; color: var(--muted); }
+.media { display: flex; flex-direction: column; gap: .5rem; }
+.media figure { margin: 0; display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+.media video, .media img { display: block; width: 100%; max-width: 100%; height: auto; border-radius: 6px; background: #000; }
+.media figcaption { font: .75rem var(--f-mono); color: var(--muted); overflow-wrap: anywhere; }
+.media img { cursor: zoom-in; }
+#viewer { position: fixed; inset: 0; z-index: 10; background: #000; touch-action: none; overflow: hidden; user-select: none; -webkit-user-select: none; overscroll-behavior: none; }
+#viewer img { position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; will-change: transform; -webkit-user-drag: none; pointer-events: none; }
+#viewer .vbtn { position: absolute; z-index: 1; min-width: 3.25rem; min-height: 3.25rem; border-radius: 50%; border: 0; padding: 0; font: 700 1.6rem/1 var(--f-body);
+  background: rgba(30,30,30,.75); color: #fff; display: flex; align-items: center; justify-content: center; }
+#viewer .vbtn:focus-visible { outline: 3px solid #fff; }
+#vclose { top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; }
+#vprev, #vnext { top: 50%; margin-top: -1.6rem; }
+#vprev { left: 8px; } #vnext { right: 8px; }
+#vcap { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 70px calc(env(safe-area-inset-bottom, 0px) + 10px) 16px; color: #fff; font: .8rem/1.3 var(--f-mono);
+  background: linear-gradient(transparent, rgba(0,0,0,.7)); pointer-events: none; }
+body.viewing { overflow: hidden; }
+.attach { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; }
+.attach .files { font: .75rem var(--f-mono); color: var(--muted); overflow-wrap: anywhere; flex: 1 1 12rem; }
+.attach .files { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.attach .chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--muted); border-radius: 6px; padding: .15rem .3rem; }
+.attach .chip img { width: 2.6rem; height: 2.6rem; object-fit: cover; border-radius: 4px; }
+.attach .chip button { padding: 0 .35rem; min-width: 1.6rem; min-height: 1.6rem; }
+.item.drop { outline: 2px dashed var(--fg); outline-offset: 2px; }
+.attach .prog { font: .8rem var(--f-mono); color: var(--fg); flex: 1 1 100%; }
+.err { color: var(--no); font-size: .9rem; }
+.wake { font: .75rem var(--f-mono); padding: .05rem .35rem; border-radius: 4px; border: 1px solid currentColor; }
+.wake.sent { color: var(--yes); } .wake.queued { color: var(--k-user-action); } .wake.failed, .wake.stuck { color: var(--no); font-weight: 600; }
+[hidden] { display: none !important; }
+.tabs { display: flex; gap: .35rem; flex-basis: 100%; }
+.tabs button { min-height: 2.2rem; padding: 0 .9rem; }
+.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.tcard { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: .75rem .85rem; display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.tcard h2 { font: 700 1.05rem var(--f-display); margin: 0; display: flex; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+.tcard h2 .master, .tcard .dir, .tcard .small { font: 400 .78rem var(--f-mono); color: var(--muted); overflow-wrap: anywhere; }
+.tcard p { margin: 0; overflow-wrap: anywhere; font-size: .92rem; }
+.tcard p b { font-weight: 600; }
+.tcard ul { margin: 0; padding-left: 1.2rem; font-size: .9rem; }
+.tcard li { overflow-wrap: anywhere; }
+.dead { color: var(--no); font-weight: 600; }
+.tlist { display: flex; flex-direction: column; gap: .6rem; margin-top: 1rem; }
+h3.sec { font: 700 1rem var(--f-display); margin: 1.75rem 0 .5rem; }
+table.gpus { border-collapse: collapse; width: 100%; font: .82rem var(--f-mono); }
+table.gpus td, table.gpus th { text-align: left; padding: .25rem .4rem; border-bottom: 1px solid var(--line); }
+.newteam { display: flex; flex-direction: column; gap: .6rem; }
+.newteam label { display: flex; flex-direction: column; gap: .2rem; font-size: .9rem; font-weight: 600; }
+.newteam input[type=text], .newteam textarea { font: 1rem var(--f-body); color: var(--fg); background: var(--bg);
+  border: 1.5px solid var(--line); border-radius: 6px; padding: .45rem .6rem; min-width: 0; }
+.newteam textarea { min-height: 6rem; resize: vertical; }
+.newteam fieldset { border: 1.5px solid var(--line); border-radius: 6px; padding: .4rem .6rem; margin: 0; }
+.newteam fieldset label { flex-direction: row; align-items: center; gap: .4rem; font: .85rem var(--f-mono); }
+.newteam fieldset label.held { color: var(--muted); }
+pre.out { white-space: pre-wrap; overflow-wrap: anywhere; font: .78rem var(--f-mono); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .5rem; margin: 0; max-height: 28rem; overflow: auto; }
+@media (prefers-reduced-motion: no-preference) { button { transition: background .12s, color .12s; } }
+</style>
+
+<div id="viewer" hidden role="dialog" aria-modal="true" aria-label="Image viewer">
+  <img id="vimg" alt="">
+  <button class="vbtn" id="vclose" aria-label="Close">&#10005;</button>
+  <button class="vbtn" id="vprev" aria-label="Previous image">&#8249;</button>
+  <button class="vbtn" id="vnext" aria-label="Next image">&#8250;</button>
+  <div id="vcap"></div>
+</div>
+<div class="wrap">
+  <header class="bar">
+    <h1>Orchestra inbox</h1>
+    <span class="tally" id="tally">loading…</span>
+    <nav class="tabs" role="tablist">
+      <button role="tab" id="tab-inbox" aria-selected="true">Inbox</button>
+      <button role="tab" id="tab-teams" aria-selected="false">Teams</button>
+    </nav>
+  </header>
+  <div id="view-teams" hidden>
+    <p class="note">Live teams, read from each team's .orchestra/status.md and registry.json. Refreshes every 60 s while open.</p>
+    <div id="terr" class="err" hidden></div>
+    <div id="tlist" class="tlist">loading…</div>
+    <h3 class="sec">Other live sessions</h3>
+    <div id="others" class="tlist"></div>
+    <h3 class="sec">GPUs</h3>
+    <div id="gpus"></div>
+    <h3 class="sec">Harness (last 7 days)</h3>
+    <div id="harness" class="small"></div>
+    <h3 class="sec">New team</h3>
+    <form class="newteam tcard" id="newteam" autocomplete="off">
+      <label>Name (short slug, e.g. depth)<input type="text" name="name" required pattern="[a-z][a-z0-9]*(-[a-z0-9]+)*" maxlength="24"></label>
+      <label>Project dir<input type="text" name="dir" required placeholder="~/dev/<project>"></label>
+      <label>Goal<textarea name="goal" required maxlength="4000"></textarea></label>
+      <fieldset id="gpupick"><legend>GPU set (free GPUs only; none = no GPU)</legend></fieldset>
+      <p class="small">Model: Opus 5.5 (fixed). The master starts in tmux orch-&lt;name&gt; and shows its plan there.</p>
+      <div class="actions">
+        <button type="button" id="nt-dry">Check (dry run)</button>
+        <button type="button" class="send" id="nt-start">Start…</button>
+      </div>
+      <div id="nt-confirm" class="actions" hidden>
+        <span id="nt-q"></span>
+        <button type="button" class="yes" id="nt-yes">Yes</button>
+        <button type="button" class="no" id="nt-no">Cancel</button>
+      </div>
+      <pre class="out" id="nt-out" hidden></pre>
+    </form>
+  </div>
+  <div id="view-inbox">
+  <p class="note">Things that wait for you across all teams. Tap an answer button or Skip, tap Explain to ask for more detail, or write a short answer. Your answer wakes the asking session at once.</p>
+  <div id="err" class="err" hidden></div>
+  <div id="list">
+    <div class="empty" id="empty">Nothing waits for you. Items come from the "Waits for the user" lines in each live team's status.md, and from inbox-ask.sh.</div>
+  </div>
+  </div>
+</div>
+
+<script>
+const KIND_LABEL = { decision: "Decision", verdict: "Verdict", "user-action": "Your action", delete: "Delete?", other: "Other" };
+const ANS_LABEL = { yes: "Yes", no: "No", skip: "Skip", later: "Skip" };
+let items = {}, answers = {}, editing = new Set();
+const pending = {};                       // item id -> File[] chosen but not sent yet
+const MAX_FILE = 500 * 2 ** 20, MAX_ALL = 2 * 2 ** 30;
+const mb = (n) => (n / 2 ** 20).toFixed(n < 10 * 2 ** 20 ? 1 : 0) + " MB";
+const $ = (s, r = document) => r.querySelector(s);
+const EMPTY = $("#empty");
+
+function ago(iso) {
+  if (!iso) return "";
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (isNaN(m)) return "";
+  if (m < 60) return m + " min ago";
+  if (m < 48 * 60) return Math.round(m / 60) + " h ago";
+  return Math.round(m / 1440) + " d ago";
+}
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+const addTo = {};                         // item id -> add(files) of the card on screen
+const thumbs = new Map();                 // File -> object URL for the preview
+let lastItem = null, pasteN = 0;
+const thumbUrl = (f) => { if (!thumbs.has(f)) thumbs.set(f, URL.createObjectURL(f)); return thumbs.get(f); };
+const dropThumb = (f) => { if (thumbs.has(f)) { URL.revokeObjectURL(thumbs.get(f)); thumbs.delete(f); } };
+const hasFiles = (dt) => !!dt && [...dt.types || []].includes("Files");
+// Clipboard images come as "image.png"; give them a time name. Dropped files keep their name.
+function named(files, paste) {
+  return files.filter(f => f.type.startsWith("image/") || f.type.startsWith("video/")).map(f => {
+    if (!paste) return f;
+    const t = new Date(), p = (n) => String(n).padStart(2, "0");
+    const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg").replace(/\W.*/, "");
+    return new File([f], `paste-${p(t.getHours())}${p(t.getMinutes())}${p(t.getSeconds())}-${++pasteN}.${ext}`, { type: f.type });
+  });
+}
+let hintT = 0;
+function hint(msg) { showErr(msg); clearTimeout(hintT); hintT = setTimeout(() => { $("#err").hidden = true; }, 3000); }
+document.addEventListener("paste", (e) => {
+  const cd = e.clipboardData; if (!cd) return;
+  const imgs = [...cd.files].filter(f => f.type.startsWith("image/"));
+  if (!imgs.length) return;               // plain text paste: leave it alone
+  const card = e.target.closest && e.target.closest("[data-iid]");
+  const id = card ? card.dataset.iid : lastItem;
+  e.preventDefault();
+  if (!id || !addTo[id] || !document.querySelector(`[data-iid="${id}"]`)) { hint("Tap an item first."); return; }
+  lastItem = id; addTo[id](named(imgs, true));
+});
+function uploadOne(id, file, onProg) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", "/upload?id=" + encodeURIComponent(id) + "&name=" + encodeURIComponent(file.name));
+    x.setRequestHeader("Content-Type", "application/octet-stream");
+    x.upload.onprogress = (e) => { if (e.lengthComputable) onProg(e.loaded, e.total); };
+    x.onload = () => x.status === 200 ? resolve(JSON.parse(x.responseText).name) : reject(x.responseText.trim() || "HTTP " + x.status);
+    x.onerror = () => reject("network error");
+    x.send(file);
+  });
+}
+async function answer(id, choice, note) {
+  const files = pending[id] || [], names = [];
+  const prog = document.getElementById("p-" + id);
+  try {
+    for (const [i, f] of files.entries()) {
+      const label = `Uploading ${i + 1}/${files.length}: ${f.name} `;
+      if (prog) prog.textContent = label + "0%";
+      names.push(await uploadOne(id, f, (a, b) => { if (prog) prog.textContent = label + Math.round(100 * a / b) + "% (" + mb(a) + " of " + mb(b) + ")"; }));
+    }
+    const r = await fetch("/answer", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, choice: choice || "", note: note || "", files: names }) });
+    if (!r.ok) throw (await r.text()).trim() || r.status;
+    (pending[id] || []).forEach(dropThumb); delete pending[id]; editing.delete(id); $("#err").hidden = true; lastTxt = "";
+  } catch (e) {
+    showErr("Could not send (" + e + "). Try again.");
+    if (prog) prog.textContent = "Failed: " + e;
+    document.querySelectorAll(`[data-iid="${id}"] button`).forEach(b => b.disabled = false);
+    return;
+  }
+  load();
+}
+function clearAnswer(id) { editing.add(id); render(); }
+function showErr(msg) { const e = $("#err"); e.textContent = msg; e.hidden = false; }
+
+function mediaBlock(list) {
+  const box = el("div", "media");
+  for (const m of list) {
+    if (!m || typeof m.url !== "string" || !m.url.startsWith("/") && !m.url.startsWith("https://")) continue;
+    const f = el("figure");
+    if (m.kind === "video") {
+      const v = el("video"); v.controls = true; v.playsInline = true; v.preload = "metadata"; v.src = m.url; f.append(v);
+    } else {
+      const i = el("img"); i.src = m.url; i.loading = "lazy"; i.alt = m.label || "image";
+      i.tabIndex = 0; i.setAttribute("role", "button");
+      const open = () => openViewer(list.filter(x => x && x.kind !== "video" && typeof x.url === "string" && (x.url.startsWith("/") || x.url.startsWith("https://"))), m);
+      i.onclick = open; i.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } };
+      f.append(i);
+    }
+    if (m.label) f.append(el("figcaption", null, m.label));
+    box.append(f);
+  }
+  return box;
+}
+
+function itemCard(id, it, ans) {
+  const card = el("article", "item"); card.dataset.kind = it.kind || "other";
+  const meta = el("div", "meta");
+  meta.append(el("span", "kind", KIND_LABEL[it.kind] || "Other"), el("span", "when", ago(it.since)), el("span", "iid", id.split("-").pop()));
+  card.append(meta, el("p", "text", it.text));
+  if (Array.isArray(it.media) && it.media.length) card.append(mediaBlock(it.media));
+  if (Array.isArray(it.thread) && it.thread.length) {
+    const th = el("div", "thread");
+    for (const t of it.thread) {
+      if (t.kind === "reply") { const r = el("div", "reply", t.text); r.prepend(el("small", null, "Master · " + ago(t.at))); th.append(r); }
+      else th.append(el("div", "ask", "You asked for an explanation · " + ago(t.at)));
+    }
+    card.append(th);
+  }
+  if (ans) {
+    const g = el("div", "given"); g.append("Your answer: ");
+    g.append(el("b", null, (ANS_LABEL[ans.choice] || ans.choice || "") + (ans.choice && ans.note ? ", " : "") + (ans.note || "")));
+    g.append(" · " + ago(ans.at) + " · ");
+    const w = ans.wake || "?";
+    const wl = { sent: "sent to master", queued: "queued (master busy)", stuck: "STUCK: not delivered for 10+ min", failed: "FAILED: not delivered", "delivered-by-hand": "delivered by hand" }[w] || w;
+    g.append(el("span", "wake " + w, wl + ((w === "stuck" || w === "failed") && ans.wake_why ? " (" + ans.wake_why + ")" : "")));
+    const change = el("button", null, "Change"); change.onclick = () => clearAnswer(id);
+    if (Array.isArray(ans.files) && ans.files.length) card.append(el("div", "given", "Attached:"), mediaBlock(ans.files));
+    card.append(g, change);
+    return card;
+  }
+  const acts = el("div", "actions");
+  const choices = it.atype === "options" ? (it.options || []).map(o => [o, o, "opt"]).concat([["skip", "Skip", "skip"]])
+    : it.atype === "open" ? [["skip", "Skip", "skip"]] : ["yes", "no", "skip"].map(c => [c, ANS_LABEL[c], c]);
+  for (const [c, label, cls] of choices) {
+    const b = el("button", cls, label); b.onclick = () => { b.disabled = true; answer(id, c, $("#n-" + id).value.trim()); };
+    acts.append(b);
+  }
+  const ex = el("button", "explain", "Explain");
+  ex.onclick = async () => {
+    ex.disabled = true;
+    try {
+      const r = await fetch("/explain", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      if (!r.ok) throw (await r.text()).trim() || r.status;
+      $("#err").hidden = true; lastTxt = "";
+    } catch (e) { showErr("Could not ask for an explanation (" + e + ")."); }
+    ex.disabled = false; load();
+  };
+  acts.append(ex);
+  const free = el("form", "free");
+  const inp = el("input"); inp.id = "n-" + id; inp.placeholder = it.atype === "open" ? "Your answer" : "Optional note or short answer"; inp.maxLength = 300; inp.setAttribute("aria-label", "Short answer");
+  const send = el("button", "send", "Send"); send.type = "submit";
+  free.append(inp, send);
+  free.onsubmit = (e) => { e.preventDefault(); const v = inp.value.trim(); if (v) answer(id, "", v); };
+  const att = el("div", "attach"), pick = el("input"), list = el("span", "files"), prog = el("div", "prog");
+  pick.type = "file"; pick.accept = "video/*,image/*"; pick.multiple = true; pick.hidden = true;
+  prog.id = "p-" + id; prog.setAttribute("aria-live", "polite");
+  const ab = el("button", null, "Attach"); ab.type = "button"; ab.onclick = () => pick.click();
+  const show = () => {
+    list.textContent = "";
+    for (const f of pending[id] || []) {
+      const chip = el("span", "chip");
+      if (f.type.startsWith("image/")) { const im = el("img"); im.src = thumbUrl(f); im.alt = f.name; chip.append(im); }
+      chip.append(el("span", null, f.name + " (" + mb(f.size) + ")"));
+      const x = el("button", null, "\u2715"); x.type = "button"; x.setAttribute("aria-label", "Remove " + f.name);
+      x.onclick = () => { pending[id] = (pending[id] || []).filter(g => g !== f); dropThumb(f); show(); };
+      chip.append(x); list.append(chip);
+    }
+  };
+  addTo[id] = (files) => {
+    const all = (pending[id] || []).concat(files);
+    const bad = all.find(f => f.size > MAX_FILE);
+    if (bad) { prog.textContent = bad.name + " is over 500 MB."; return; }
+    if (all.reduce((n, f) => n + f.size, 0) > MAX_ALL) { prog.textContent = "More than 2 GB in total."; return; }
+    prog.textContent = ""; pending[id] = all; show();
+  };
+  pick.onchange = () => { const fs = [...pick.files]; pick.value = ""; addTo[id](fs); };
+  show();
+  att.append(ab, pick, list, prog);
+  card.dataset.iid = id; card.tabIndex = -1;
+  card.addEventListener("pointerdown", () => { lastItem = id; });
+  card.addEventListener("focusin", () => { lastItem = id; });
+  card.addEventListener("dragover", (e) => { if (hasFiles(e.dataTransfer)) { e.preventDefault(); card.classList.add("drop"); } });
+  card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.classList.remove("drop"); });
+  card.addEventListener("drop", (e) => {
+    card.classList.remove("drop");
+    if (!hasFiles(e.dataTransfer)) return;
+    e.preventDefault(); lastItem = id; addTo[id](named([...e.dataTransfer.files]));
+  });
+  free.onsubmit = (e) => { e.preventDefault(); const v = inp.value.trim(); if (v || (pending[id] || []).length) { send.disabled = true; answer(id, "", v); } };
+  card.append(acts, free, att);
+  return card;
+}
+
+function render() {
+  const list = $("#list");
+  const ids = Object.keys(items);
+  // keep typed drafts across re-renders
+  const drafts = {}; list.querySelectorAll("input[id^='n-']").forEach(i => { if (i.value) drafts[i.id] = i.value; });
+  const focused = document.activeElement && document.activeElement.id;
+  list.textContent = "";
+  if (!ids.length) { list.append(EMPTY); $("#tally").textContent = "0 open"; return; }
+  answers = {}; for (const id of ids) if (items[id].answer && !editing.has(id)) answers[id] = items[id].answer;
+  const open = ids;
+  const waiting = open.filter(id => !answers[id]);
+  $("#tally").innerHTML = "";
+  $("#tally").append(el("b", null, String(waiting.length)), " waiting · ", el("b", null, String(open.length - waiting.length)), " answered");
+  const newest = (a, b) => (items[b].since || "").localeCompare(items[a].since || "") || a.localeCompare(b);
+  const teams = {};
+  for (const id of open) (teams[items[id].team] ||= []).push(id);
+  const order = Object.keys(teams).sort((a, b) =>
+    teams[b].filter(i => !answers[i]).length - teams[a].filter(i => !answers[i]).length || a.localeCompare(b));
+  for (const t of order) {
+    const sec = el("section", "team");
+    const h = el("h2", null, t); h.append(el("span", "master", items[teams[t][0]].master || ""));
+    const box = el("div", "items");
+    const tids = teams[t].sort(newest);
+    for (const id of tids.filter(i => !answers[i])) box.append(itemCard(id, items[id], null));
+    for (const id of tids.filter(i => answers[i])) {
+      const a = answers[id], d = el("details", "done"); d.style.setProperty("--kc", `var(--k-${items[id].kind || "other"})`);
+      const s = el("summary");
+      s.append(el("span", "ans " + (ANS_LABEL[a.choice] ? a.choice : a.choice ? "opt" : "note"), ANS_LABEL[a.choice] || a.choice || "Note"), el("span", "short", items[id].text));
+      d.append(s, itemCard(id, items[id], a));
+      box.append(d);
+    }
+    sec.append(h, box); list.append(sec);
+  }
+  for (const k in drafts) { const i = document.getElementById(k); if (i) i.value = drafts[k]; }
+  if (focused) { const f = document.getElementById(focused); if (f) f.focus(); }
+}
+
+// ---- image viewer: pinch / wheel zoom up to 8x, pan, double-tap 1x/3x, swipe or arrows for next image ----
+const V = $("#viewer"), VI = $("#vimg");
+let vlist = [], vidx = 0, vs = 1, vx = 0, vy = 0, fit = 1, nw = 1, nh = 1;
+const ptrs = new Map();
+let g = null, lastTap = null;
+const MAXZ = 8;
+const vw = () => V.clientWidth, vh = () => V.clientHeight;
+function clampV() {
+  const w = nw * fit * vs, h = nh * fit * vs;
+  vx = w <= vw() ? (vw() - w) / 2 : Math.min(0, Math.max(vw() - w, vx));
+  vy = h <= vh() ? (vh() - h) / 2 : Math.min(0, Math.max(vh() - h, vy));
+}
+function applyV() { clampV(); VI.style.transform = `translate(${vx}px,${vy}px) scale(${vs})`; }
+function zoomAt(cx, cy, ns) {
+  ns = Math.min(MAXZ, Math.max(1, ns));
+  const k = ns / vs; vx = cx - (cx - vx) * k; vy = cy - (cy - vy) * k; vs = ns; applyV();
+}
+function resetV() {
+  fit = Math.min(vw() / nw, vh() / nh); vs = 1; VI.style.width = nw * fit + "px"; VI.style.height = nh * fit + "px"; applyV();
+}
+function showV(i) {
+  vidx = (i + vlist.length) % vlist.length;
+  const m = vlist[vidx]; VI.style.visibility = "hidden"; VI.alt = m.label || "image";
+  VI.onload = () => { nw = VI.naturalWidth || 1; nh = VI.naturalHeight || 1; resetV(); VI.style.visibility = "visible"; };
+  VI.src = m.url;
+  $("#vcap").textContent = (vlist.length > 1 ? (vidx + 1) + "/" + vlist.length + "  " : "") + (m.label || "");
+  const multi = vlist.length > 1; $("#vprev").hidden = $("#vnext").hidden = !multi;
+}
+function openViewer(list, m) {
+  vlist = list; V.hidden = false; document.body.classList.add("viewing"); document.documentElement.style.overflow = "hidden";
+  showV(Math.max(0, list.indexOf(m))); $("#vclose").focus();
+}
+function closeViewer() {
+  V.hidden = true; ptrs.clear(); g = null; VI.removeAttribute("src");
+  document.body.classList.remove("viewing"); document.documentElement.style.overflow = "";
+}
+function startGesture() {
+  const p = [...ptrs.values()];
+  if (p.length >= 2) {
+    const [a, b] = p; g = { mode: "pinch", d: Math.hypot(a.x - b.x, a.y - b.y) || 1, s: vs, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+  } else if (p.length === 1) {
+    g = { mode: "pan", x: p[0].x, y: p[0].y, sx: p[0].x, sy: p[0].y, t: Date.now(), moved: false };
+  } else g = null;
+}
+V.addEventListener("pointerdown", (e) => {
+  if (e.target.closest(".vbtn")) return;
+  V.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); startGesture();
+});
+V.addEventListener("pointermove", (e) => {
+  if (!ptrs.has(e.pointerId) || !g) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (g.mode === "pinch" && ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    vx += mx - g.mx; vy += my - g.my; g.mx = mx; g.my = my;
+    zoomAt(mx, my, g.s * d / g.d);
+  } else if (g.mode === "pan") {
+    const dx = e.clientX - g.x, dy = e.clientY - g.y; g.x = e.clientX; g.y = e.clientY;
+    if (Math.abs(e.clientX - g.sx) + Math.abs(e.clientY - g.sy) > 8) g.moved = true;
+    vx += dx; vy += dy; applyV();
+  }
+});
+function endPtr(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  const wasPan = g && g.mode === "pan" ? g : null;
+  ptrs.delete(e.pointerId);
+  if (wasPan && e.type === "pointerup") {
+    const dx = e.clientX - wasPan.sx, dy = e.clientY - wasPan.sy;
+    if (!wasPan.moved) {
+      const now = Date.now();
+      if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+        zoomAt(e.clientX, e.clientY, vs > 1.05 ? 1 : 3); lastTap = null;
+      } else lastTap = { t: now, x: e.clientX, y: e.clientY };
+    } else if (vs <= 1.05 && Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy) && vlist.length > 1) {
+      showV(vidx + (dx < 0 ? 1 : -1));
+    }
+  }
+  startGesture();
+}
+V.addEventListener("pointerup", endPtr); V.addEventListener("pointercancel", endPtr);
+V.addEventListener("wheel", (e) => { e.preventDefault(); zoomAt(e.clientX, e.clientY, vs * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015))); }, { passive: false });
+V.addEventListener("dblclick", (e) => { if (e.pointerType === "mouse" || !e.pointerType) zoomAt(e.clientX, e.clientY, vs > 1.05 ? 1 : 3); });
+for (const ev of ["touchmove", "gesturestart", "gesturechange"]) V.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
+$("#vclose").onclick = closeViewer; $("#vprev").onclick = () => showV(vidx - 1); $("#vnext").onclick = () => showV(vidx + 1);
+window.addEventListener("keydown", (e) => {
+  if (V.hidden) return;
+  if (e.key === "Escape") closeViewer(); else if (e.key === "ArrowRight") showV(vidx + 1); else if (e.key === "ArrowLeft") showV(vidx - 1);
+  else if (e.key === "+" || e.key === "=") zoomAt(vw() / 2, vh() / 2, vs * 1.5); else if (e.key === "-") zoomAt(vw() / 2, vh() / 2, vs / 1.5);
+});
+window.addEventListener("resize", () => { if (!V.hidden) resetV(); });
+
+let lastTxt = "";
+async function load() {
+  // keep the page still while the user types or views an image
+  const busy = (document.activeElement && document.activeElement.id && document.activeElement.id.startsWith("n-") && document.activeElement.value) || !V.hidden
+    || Object.values(pending).some(a => a.length);
+  try {
+    const r = await fetch("/api/items", { cache: "no-store" });
+    if (!r.ok) throw r.status === 403 ? "403: open the link with ?t=<token> once" : r.status;
+    const txt = await r.text();
+    const playing = [...document.querySelectorAll("video")].some(v => !v.paused);
+    if (txt === lastTxt || busy || playing) return;
+    lastTxt = txt; items = {}; for (const it of JSON.parse(txt)) items[it.id] = it;
+    render();
+  } catch (e) { showErr("Could not load items (" + e + ")."); }
+}
+load();
+setInterval(() => { if (!document.hidden) load(); }, 20000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { load(); if (tab === "teams") loadTeams(); } });
+
+// ---- Teams tab ----
+let tab = "inbox", teamsBusy = false;
+function showTab(t) {
+  tab = t;
+  $("#tab-inbox").setAttribute("aria-selected", t === "inbox"); $("#tab-teams").setAttribute("aria-selected", t === "teams");
+  $("#view-inbox").hidden = t !== "inbox"; $("#view-teams").hidden = t !== "teams"; $("#tally").hidden = t !== "inbox";
+  history.replaceState(null, "", t === "teams" ? "#teams" : location.pathname);
+  if (t === "teams") loadTeams();
+}
+$("#tab-inbox").onclick = () => showTab("inbox"); $("#tab-teams").onclick = () => showTab("teams");
+const ktok = (n) => n == null ? "" : Math.round(n / 1000) + "k tokens";
+function field(label, text) { const p = el("p"); p.append(el("b", null, label + ": "), text || "—"); return p; }
+function teamCard(t) {
+  const c = el("div", "tcard"), h = el("h2", null, t.team);
+  h.append(el("span", "master", t.master + (t.master_live ? " · " + ktok(t.master_tokens) : "")));
+  if (!t.master_live) h.append(el("span", "dead", "master not live"));
+  if (t.usage_until) h.append(el("span", "dead", "usage limit until " + t.usage_until));
+  c.append(h, el("div", "dir", t.dir + (t.status_at ? " · status.md " + ago(t.status_at) : "")));
+  c.append(field("Goal", t.goal), field("Key results", t.key));
+  c.append(field("GPU set", t.gpus.length ? t.gpus.join(", ") : "none"));
+  if (t.gpu_line) c.append(field("GPU use", t.gpu_line));
+  const op = el("p"); op.append(el("b", null, `Open items (${t.open.length})`)); c.append(op);
+  if (t.open.length) { const ul = el("ul"); for (const o of t.open) ul.append(el("li", null, o)); c.append(ul); }
+  const wp = el("p"); wp.append(el("b", null, `Live workers (${t.workers.length})`)); c.append(wp);
+  if (t.workers.length) {
+    const ul = el("ul");
+    for (const w of t.workers) ul.append(el("li", null, [w.name, w.task, w.gpu, ktok(w.tokens)].filter(Boolean).join(" · ")));
+    c.append(ul);
+  }
+  return c;
+}
+let lastTeams = "";
+async function loadTeams() {
+  if (teamsBusy) return; teamsBusy = true;
+  try {
+    const r = await fetch("/api/teams", { cache: "no-store" });
+    if (!r.ok) throw r.status === 403 ? "403: open the link with ?t=<token> once" : r.status;
+    const txt = await r.text(); $("#terr").hidden = true;
+    if (txt === lastTeams) return;
+    lastTeams = txt; const d = JSON.parse(txt);
+    const tl = $("#tlist"); tl.textContent = "";
+    tl.append(el("p", "small", `${d.teams.length} teams · ${d.masters} of ${d.max_masters} live masters`));
+    for (const t of d.teams) tl.append(teamCard(t));
+    const ot = $("#others"); ot.textContent = "";
+    if (!d.others.length) ot.append(el("p", "small", "none"));
+    for (const o of d.others) {
+      const c = el("div", "tcard"), h = el("h2", null, o.name); h.append(el("span", "master", ktok(o.tokens)));
+      c.append(h, el("div", "dir", o.dir));
+      if (o.goal) c.append(field("Goal", o.goal));
+      if (o.open.length) c.append(field("Open items", o.open.join("; ")));
+      ot.append(c);
+    }
+    const gt = el("table", "gpus"), head = el("tr");
+    for (const x of ["GPU", "held by", "memory MiB", "util"]) head.append(el("th", null, x));
+    gt.append(head);
+    const pick = $("#gpupick"), chosen = new Set([...pick.querySelectorAll("input:checked")].map(i => i.value));
+    pick.querySelectorAll("label, p").forEach(x => x.remove());
+    let free = 0;
+    for (const h of d.gpus.hosts) for (const g of h.gpus) {
+      const tr = el("tr");
+      tr.append(el("td", null, g.id), el("td", null, g.held_by || "free"),
+        el("td", null, h.state === "ok" ? `${g.mem_used} / ${g.mem_total}` : "host unknown"), el("td", null, h.state === "ok" ? g.util + " %" : ""));
+      gt.append(tr);
+      const by = g.held_by;
+      const lab = el("label", by ? "held" : null), cb = el("input"); cb.type = "checkbox"; cb.value = g.id;
+      cb.disabled = !!by; cb.checked = !by && chosen.has(g.id);
+      lab.append(cb, g.id + (by ? " (" + by + ")" : h.state === "ok" ? ` (${g.mem_used} MiB used)` : " (host unknown)"));
+      pick.append(lab); if (!by) free++;
+    }
+    if (!free) pick.append(el("p", "small", "No free GPU now."));
+    const hm = d.harness, hd = $("#harness");
+    hd.textContent = !hm ? "not available" : `DONE after chain: ${hm.done_n || 0} (median ${hm.done_delay_med_min ?? "-"} min, ${hm.done_gt10 || 0} over 10 min) · ` +
+      `denied: ${hm.denied || 0} · fix rounds: ${hm.fix_rounds || 0} · report-check fails at retire: ${hm.rc_fail || 0} of ${hm.retired || 0} · ` +
+      `asks: ${hm.asks || 0} (median wait ${hm.ask_wait_med_min ?? "-"} min, ${hm.asks_open || 0} open) · idle GPU h (est): ${hm.idle_gpu_h || 0} · wake fails: ${hm.wake_fail || 0}`;
+    const gd = $("#gpus"); gd.textContent = ""; gd.append(gt, el("p", "small", "nvidia-smi read at " + d.gpus.at + " (cached 60 s)"));
+  } catch (e) { const t = $("#terr"); t.textContent = "Could not load teams (" + e + ")."; t.hidden = false; }
+  finally { teamsBusy = false; }
+}
+setInterval(() => { if (!document.hidden && tab === "teams") loadTeams(); }, 60000);
+function teamBody(confirm) {
+  const f = $("#newteam");
+  const v = (k) => f.elements[k].value.trim();
+  return { name: v("name"), dir: v("dir"), goal: v("goal"),
+    gpus: [...f.querySelectorAll("#gpupick input:checked")].map(i => i.value), confirm: confirm || "" };
+}
+async function sendTeam(dry, confirm) {
+  const out = $("#nt-out"); out.hidden = false; out.textContent = dry ? "Checking…" : "Starting…";
+  for (const b of ["#nt-dry", "#nt-start", "#nt-yes"]) $(b).disabled = true;
+  try {
+    const r = await fetch("/team" + (dry ? "?dry=1" : ""), { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(teamBody(confirm)) });
+    const txt = await r.text(); let d; try { d = JSON.parse(txt); } catch { throw txt.trim() || "HTTP " + r.status; }
+    const lines = [];
+    if (d.errors && d.errors.length) lines.push("REFUSED:", ...d.errors.map(e => "- " + e), "");
+    else lines.push(dry ? "DRY RUN OK. Nothing started." : "STARTED.", "");
+    if (d.output) lines.push(d.output, "");
+    if (d.plan) {
+      lines.push("Writes: " + d.plan.write.join(", "));
+      if (d.plan.backup.length) lines.push("Backs up first: " + d.plan.backup.join(", "));
+      lines.push("Runs: " + d.plan.run, "Window: " + d.plan.tmux + " · attach: " + d.plan.attach);
+      if (d.plan.handoff) lines.push("", "--- master-handoff.md ---", d.plan.handoff, "--- contract.yaml ---", d.plan.contract);
+    }
+    out.textContent = lines.join("\n");
+    if (!dry && d.ok) { lastTeams = ""; loadTeams(); }
+  } catch (e) { out.textContent = "Error: " + e; }
+  finally { for (const b of ["#nt-dry", "#nt-start", "#nt-yes"]) $(b).disabled = false; $("#nt-confirm").hidden = true; }
+}
+$("#nt-dry").onclick = () => sendTeam(true);
+$("#nt-start").onclick = () => {
+  const n = teamBody().name; if (!n) { const o = $("#nt-out"); o.hidden = false; o.textContent = "Write a name first."; return; }
+  $("#nt-q").textContent = `Start master-${n}?`; $("#nt-confirm").hidden = false; $("#nt-yes").focus();
+};
+$("#nt-yes").onclick = () => sendTeam(false, "yes");
+$("#nt-no").onclick = () => { $("#nt-confirm").hidden = true; };
+if (location.hash === "#teams") showTab("teams");
+</script>
+<!-- local inbox v1 -->

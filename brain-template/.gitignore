@@ -1,0 +1,8 @@
+# Obsidian: keep shared config, drop machine state
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/
+__pycache__/
+# Rewritten all the time by the tmux hook
+tmux-now.md

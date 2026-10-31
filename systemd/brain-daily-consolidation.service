@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily consolidation agent for the brain vault (bump-and-merge markers/insights)
+
+[Service]
+# Change the path if your brain vault is not ~/brain.
+Type=oneshot
+ExecStart=/bin/bash %h/brain/_meta/daily-consolidation.sh

@@ -1,0 +1,13 @@
+*.log
+*.jsonl
+*.lock
+token
+inbox/
+runs/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+# runtime files the hooks write when the repo is linked into ~/.claude
+orchestra/hooks/mode
+orchestra/hooks/ask-id
+orchestra/hooks/rm_cases.json

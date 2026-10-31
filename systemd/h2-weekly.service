@@ -1,0 +1,7 @@
+[Unit]
+Description=Harness2 weekly reminder: ask the user (inbox) whether master-harness should run improve.sh
+
+[Service]
+Type=oneshot
+ExecStart=%h/.claude/orchestra/inbox-ask.sh "Run harness improve? (Harness2 Propose-Probe-Compose on one skill, about 12 headless claude runs. On yes, master-harness runs ~/.claude/orchestra/h2/improve.sh. Nothing is applied without a second ask.)" --yesno --kind decision --from master-harness
+TimeoutStartSec=60

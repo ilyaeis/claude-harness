@@ -1,0 +1,15 @@
+# ── brain: keep the tmux board in the vault fresh ──────────────────────────
+# Add to ~/.tmux.conf. It rewrites $BRAIN_DIR/tmux-now.md when tmux state changes.
+# Runs in the background (-b), so it does not block tmux.
+# Side effect: a run-shell hook can leave a new pane in view mode (yellow text at the top).
+# Keys sent to such a pane go to tmux, not to the program. The orchestra scripts leave view mode first.
+%hidden _BRAIN_SNAP='run-shell -b "$HOME/brain/_meta/tmux-snapshot.sh >/dev/null 2>&1"'
+set-hook -g session-created      "$_BRAIN_SNAP"
+set-hook -g client-attached      "$_BRAIN_SNAP"
+set-hook -g client-detached      "$_BRAIN_SNAP"
+set-hook -g after-new-window     "$_BRAIN_SNAP"
+set-hook -g after-kill-pane      "$_BRAIN_SNAP"
+set-hook -g pane-exited          "$_BRAIN_SNAP"
+set-hook -g after-rename-session "$_BRAIN_SNAP"
+set-hook -g after-select-window  "$_BRAIN_SNAP"
+set-hook -g after-select-pane    "$_BRAIN_SNAP"
