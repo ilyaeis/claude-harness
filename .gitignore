@@ -2,7 +2,7 @@
 *.jsonl
 *.lock
 token
-inbox/
+orchestra/inbox/
 runs/
 __pycache__/
 .pytest_cache/
