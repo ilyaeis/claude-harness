@@ -4,6 +4,11 @@ This is my personal setup for Claude Code. I use it every day for my own work.
 It is a set of skills, shell and Python scripts, hooks and templates around the `claude` CLI.
 It is not a product. It fits my machine and my habits. Read it for ideas, and copy the parts that help you.
 
+> **Warning.** The shipped `claude/settings.json` uses `bypassPermissions` and allows `Bash(*)`.
+> Agents can then run any command without asking you.
+> Use it only in a sandbox or on a machine you trust.
+> Review it before you use it.
+
 ## 1. The problem
 
 One Claude session is good at one task. My work has many tasks at the same time, and some run for hours on GPU servers.

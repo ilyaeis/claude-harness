@@ -20,7 +20,7 @@ Each run:
      Kinds in "wake_kinds_all" wake that master wherever it runs; other kinds: dry run.
      Test only: ORCH_CTX_THRESHOLDS="<n300> <n400> <n500>" overrides the thresholds.
   8. Usage limit / API stall: for each live idle Claude session (any name), read the last lines above its input box
-     (capture-pane, read-only). "You've hit your ... limit · resets 3am (Europe/Riga)" -> USAGE_LIMIT;
+     (capture-pane, read-only). "You've hit your ... limit · resets 3am (<time zone>)" -> USAGE_LIMIT;
      "API Error: ..." -> API_STALL. One event per session per idle period (statusUpdatedAt).
      Resume when still idle in the same period: USAGE_RESUME at reset + 2 min, API_RESUME after 3 min idle.
      Max 2 resumes per session per hour. Resumes wake only if the kind is in "wake_kinds_all".
@@ -187,7 +187,7 @@ RESUME_MAX_PER_HOUR = 2
 
 
 def parse_reset(text, since):
-    """Epoch of "3am (Europe/Riga)", "5:30pm", "Oct 21, 5pm (Europe/Riga)": the first such time after `since`. None if unparsed."""
+    """Epoch of "3am (<time zone>)", "5:30pm", "Oct 21, 5pm (<time zone>)": the first such time after `since`. None if unparsed."""
     m = RESET_RE.search(text or "")
     if not m:
         return None
